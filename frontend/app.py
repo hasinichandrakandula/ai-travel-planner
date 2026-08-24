@@ -1,190 +1,129 @@
-import os
-import requests
 import streamlit as st
+import requests
 
-# Point to your active Render backend
-BACKEND_URL = os.getenv("BACKEND_URL", "https://ai-travel-planner-8-75ia.onrender.com").rstrip("/")
+BACKEND_URL = "https://ai-travel-planner-6-751n.onrender.com"
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="AI Travel Planner",
-    page_icon="✈️",
-    layout="wide"
-)
+st.set_page_config(page_title="AI Travel Planner", layout="wide")
 
-st.title("✈️ AI Travel Planner")
-st.write("Discover places, hotels and restaurants with AI")
-
-# ---------------- SESSION STATE ----------------
+# --- INITIALIZE SESSION STATE ---
 if "token" not in st.session_state:
-    st.session_state.token = None
+    st.session_state["token"] = None
+if "username" not in st.session_state:
+    st.session_state["username"] = None
 
-# ---------------- SIDEBAR AUTH ----------------
-menu = st.sidebar.radio("Account", ["Signup", "Login"])
-
-# ======================================================
-# SIGNUP
-# ======================================================
-if menu == "Signup":
-    st.sidebar.header("Create Account")
-
-    signup_username = st.sidebar.text_input("Username")
-    signup_email = st.sidebar.text_input("Email")
-    signup_password = st.sidebar.text_input("Password", type="password")
-
-    if st.sidebar.button("Signup"):
-        if not signup_username.strip():
-            st.sidebar.error("Username cannot be empty")
-        elif not signup_email.strip() or "@" not in signup_email:
-            st.sidebar.error("Please enter a valid email address")
-        elif not signup_password:
-            st.sidebar.error("Password cannot be empty")
-        else:
-            try:
-                response = requests.post(
-                    f"{BACKEND_URL}/signup",
-                    json={
-                        "username": signup_username.strip(),
-                        "email": signup_email.strip(),
-                        "password": signup_password.strip()
-                    }
-                )
-                if response.status_code in [200, 201]:
-                    data = response.json()
-                    st.session_state.token = data.get("access_token")
-                    st.sidebar.success("Signup successful! You are now logged in.")
-                    st.rerun()
-                else:
-                    detail = response.json().get("detail", response.text) if response.headers.get("content-type") == "application/json" else response.text
-                    st.sidebar.error(f"Signup failed: {detail}")
-            except Exception as e:
-                st.sidebar.error(f"Could not connect to backend: {e}")
-
-# ======================================================
-# LOGIN
-# ======================================================
-elif menu == "Login":
-    st.sidebar.header("Login")
-
-    login_username = st.sidebar.text_input("Username", key="login_username")
-    login_password = st.sidebar.text_input("Password", type="password", key="login_password")
-
-    if st.sidebar.button("Login"):
-        if not login_username.strip() or not login_password.strip():
-            st.sidebar.error("Please enter both username and password")
-        else:
-            try:
-                response = requests.post(
-                    f"{BACKEND_URL}/login",
-                    json={
-                        "username": login_username.strip(),
-                        "password": login_password.strip()
-                    }
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    st.session_state.token = data["access_token"]
-                    st.sidebar.success("Login Successful!")
-                    st.rerun()
-                else:
-                    st.sidebar.error("Invalid username or password")
-            except Exception as e:
-                st.sidebar.error(f"Could not connect to backend: {e}")
-
-# ======================================================
-# RECOMMENDATIONS
-# ======================================================
-st.header("🌍 Search Destination")
-
-destination = st.text_input("Destination", placeholder="Example: Paris")
-
-if st.button("Get Recommendations"):
-    if st.session_state.token is None:
-        st.warning("Please login first.")
-    elif destination.strip() == "":
-        st.warning("Please enter a destination.")
+# --- SIDEBAR AUTH ---
+with st.sidebar:
+    st.title("Account")
+    
+    if st.session_state["token"]:
+        st.success(f"Logged in as **{st.session_state['username']}**")
+        if st.button("Logout"):
+            st.session_state["token"] = None
+            st.session_state["username"] = None
+            st.rerun()
     else:
-        headers = {"Authorization": f"Bearer {st.session_state.token}"}
-        
-        with st.spinner("Generating AI travel recommendations..."):
-            try:
-                response = requests.post(
-                    f"{BACKEND_URL}/recommend",
-                    headers=headers,
-                    json={
-                        "destination": destination.strip(),
-                        "preferences": [],
-                        "days": 3
-                    }
-                )
+        auth_mode = st.radio("Choose action", ["Signup", "Login"])
+        uname = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
 
-                if response.status_code == 200:
-                    result = response.json()
-                    st.success("Recommendations Found!")
-
-                    if result.get("ai_summary"):
-                        st.subheader("📋 Trip Summary")
-                        st.write(result["ai_summary"])
-
-                    # Tourist Attractions
-                    st.subheader("🏝 Tourist Attractions")
-                    if result.get("attractions"):
-                        for place in result["attractions"]:
-                            st.markdown(f"### 📍 {place['name']}")
-                            st.write("Address:", place.get("address", "N/A"))
-                            if place.get("maps_url"):
-                                st.markdown(f"[🌍 Open in OpenStreetMap]({place['maps_url']})")
-                            st.write("---")
-                    else:
-                        st.info("No attractions found.")
-
-                    # Hotels
-                    st.subheader("🏨 Hotels")
-                    if result.get("hotels"):
-                        for hotel in result["hotels"]:
-                            st.markdown(f"### 🏨 {hotel['name']}")
-                            st.write("Address:", hotel.get("address", "N/A"))
-                            if hotel.get("maps_url"):
-                                st.markdown(f"[🌍 Open in OpenStreetMap]({hotel['maps_url']})")
-                            st.write("---")
-                    else:
-                        st.info("No hotels found.")
-
-                    # Restaurants
-                    st.subheader("🍽 Restaurants")
-                    if result.get("restaurants"):
-                        for restaurant in result["restaurants"]:
-                            st.markdown(f"### 🍴 {restaurant['name']}")
-                            st.write("Address:", restaurant.get("address", "N/A"))
-                            if restaurant.get("maps_url"):
-                                st.markdown(f"[🌍 Open in OpenStreetMap]({restaurant['maps_url']})")
-                            st.write("---")
-                    else:
-                        st.info("No restaurants found.")
+        if auth_mode == "Signup":
+            email = st.text_input("Email")
+            if st.button("Sign Up"):
+                if not uname or not pwd or not email:
+                    st.warning("Please fill in all fields.")
                 else:
-                    st.error(f"Error {response.status_code}: {response.text}")
-            except Exception as e:
-                st.error(f"Failed to fetch recommendations: {e}")
+                    payload = {"username": uname, "email": email, "password": pwd}
+                    res = requests.post(f"{BACKEND_URL}/signup", json=payload)
+                    if res.status_code in [200, 201]:
+                        data = res.json()
+                        st.session_state["token"] = data.get("access_token")
+                        st.session_state["username"] = data.get("username", uname)
+                        st.success("✅ Signup successful! Logged in.")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Signup failed: {res.text}")
 
-# ======================================================
-# HISTORY
-# ======================================================
-st.header("📜 My Travel History")
+        elif auth_mode == "Login":
+            if st.button("Login"):
+                if not uname or not pwd:
+                    st.warning("Please enter username and password.")
+                else:
+                    payload = {"username": uname, "password": pwd}
+                    res = requests.post(f"{BACKEND_URL}/login", json=payload)
+                    if res.status_code == 200:
+                        data = res.json()
+                        st.session_state["token"] = data.get("access_token")
+                        st.session_state["username"] = data.get("username", uname)
+                        st.success("✅ Login successful!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid username or password.")
 
-if st.button("Show History"):
-    if st.session_state.token is None:
-        st.warning("Please login first.")
+# --- MAIN SCREEN ---
+st.title("✈️ AI Travel Planner")
+
+destination = st.text_input("Where do you want to go?", "visakhapatnam")
+days = st.slider("Trip Duration (Days)", 1, 7, 3)
+
+if st.button("Generate Travel Plan"):
+    if not st.session_state["token"]:
+        st.warning("⚠️ Please log in or sign up using the sidebar first!")
     else:
-        headers = {"Authorization": f"Bearer {st.session_state.token}"}
-        try:
-            response = requests.get(f"{BACKEND_URL}/history", headers=headers)
-            if response.status_code == 200:
-                history = response.json()
-                if not history:
-                    st.info("No history found.")
+        headers = {
+            "Authorization": f"Bearer {st.session_state['token']}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "destination": destination,
+            "days": days,
+            "preferences": [],
+            "budget": "any"
+        }
+
+        with st.spinner("Generating plan..."):
+            res = requests.post(f"{BACKEND_URL}/recommend", json=payload, headers=headers)
+            
+            if res.status_code == 200:
+                data = res.json()
+
+                # Trip Summary
+                st.subheader("📝 Trip Summary")
+                st.write(data.get("ai_summary", "No summary generated."))
+
+                # Attractions
+                st.subheader("📸 Tourist Attractions")
+                attractions = data.get("attractions", [])
+                if attractions:
+                    for item in attractions:
+                        name = item.get("name", "Unnamed")
+                        addr = item.get("address", "")
+                        map_url = item.get("maps_url", "#")
+                        st.markdown(f"- **[{name}]({map_url})** — {addr}")
                 else:
-                    st.json(history)
+                    st.info("No attractions found.")
+
+                # Hotels
+                st.subheader("🏨 Hotels")
+                hotels = data.get("hotels", [])
+                if hotels:
+                    for item in hotels:
+                        name = item.get("name", "Unnamed")
+                        addr = item.get("address", "")
+                        map_url = item.get("maps_url", "#")
+                        st.markdown(f"- **[{name}]({map_url})** — {addr}")
+                else:
+                    st.info("No hotels found.")
+
+                # Restaurants
+                st.subheader("🍽️ Restaurants")
+                restaurants = data.get("restaurants", [])
+                if restaurants:
+                    for item in restaurants:
+                        name = item.get("name", "Unnamed")
+                        addr = item.get("address", "")
+                        map_url = item.get("maps_url", "#")
+                        st.markdown(f"- **[{name}]({map_url})** — {addr}")
+                else:
+                    st.info("No restaurants found.")
             else:
-                st.error(response.text)
-        except Exception as e:
-            st.error(f"Could not load history: {e}")
+                st.error(f"Error ({res.status_code}): {res.text}")

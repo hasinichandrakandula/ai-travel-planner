@@ -29,7 +29,17 @@ from recommender import rank_places
 # Alembic migrations instead for a production system).
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="AI Travel Planner API")
+app = FastAPI(
+    title="AI Travel Planner",
+    description="AI Travel Planner API",
+    version="1.0.0"
+)
+
+@app.get("/")
+def home():
+    return {
+        "message": "AI Travel Planner is working!"
+    }
 
 # Allow the Streamlit frontend (any localhost port) to call this API.
 app.add_middleware(
