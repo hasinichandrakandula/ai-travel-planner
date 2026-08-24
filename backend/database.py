@@ -8,17 +8,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
+# Check if a full DATABASE_URL exists (e.g. from Render), otherwise build from individual local vars
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "3306")
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME = os.getenv("DB_NAME", "travelplanner")
+if not DATABASE_URL:
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "3306")
+    DB_USER = os.getenv("DB_USER", "root")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    DB_NAME = os.getenv("DB_NAME", "travelplanner")
+    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
 
-# pymysql driver, utf8mb4 for full unicode support (place names, emojis, etc.)
-SQLALCHEMY_DATABASE_URL = (
-    f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
-)
+if DATABASE_URL.startswith("mysql://"):
+    DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+
+SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,

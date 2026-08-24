@@ -1,6 +1,9 @@
 import requests
 
-API_KEY = "67e89125d1f74e8d808a9ea365737280"
+import os
+import requests
+
+API_KEY = os.getenv("GEOAPIFY_API_KEY")
 
 GEOCODING_URL = "https://api.geoapify.com/v1/geocode/search"
 PLACES_URL = "https://api.geoapify.com/v2/places"
