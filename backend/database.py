@@ -1,42 +1,36 @@
-"""
-MySQL database connection using SQLAlchemy.
-Reads connection details from environment variables (.env).
-"""
 import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-load_dotenv()
-# Check if a full DATABASE_URL exists (e.g. from Render), otherwise build from individual local vars
+# 1. Fetch DATABASE_URL from Render environment
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    DB_HOST = os.getenv("DB_HOST", "localhost")
-    DB_PORT = os.getenv("DB_PORT", "3306")
-    DB_USER = os.getenv("DB_USER", "root")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-    DB_NAME = os.getenv("DB_NAME", "travelplanner")
-    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
+    raise ValueError("DATABASE_URL is not set in environment variables.")
 
+# 2. Convert standard mysql URI to pymysql dialect
 if DATABASE_URL.startswith("mysql://"):
     DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
 
-SQLALCHEMY_DATABASE_URL = DATABASE_URL
+# 3. Clean SSL parameters for PyMySQL compatibility
+connect_args = {}
+if "ssl-mode=REQUIRED" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("?ssl-mode=REQUIRED", "").replace("&ssl-mode=REQUIRED", "")
+    connect_args["ssl"] = {"ssl_mode": "REQUIRED"}
 
+# 4. Create database engine
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    pool_pre_ping=True,   # avoids "MySQL server has gone away" errors
-    pool_recycle=3600,
+    DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=300
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
-
 def get_db():
-    """FastAPI dependency that yields a DB session and closes it after use."""
     db = SessionLocal()
     try:
         yield db
