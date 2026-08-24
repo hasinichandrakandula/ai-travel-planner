@@ -2,10 +2,7 @@ import os
 import streamlit as st
 import requests
 
-BACKEND_URL = os.getenv(
-    "BACKEND_URL",
-    "http://127.0.0.1:8000"
-)
+BACKEND_URL = os.getenv("BACKEND_URL", "https://ai-travel-planner-3-rkye.onrender.com")
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="AI Travel Planner",
